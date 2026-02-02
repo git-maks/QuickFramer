@@ -1,0 +1,199 @@
+:root {
+    --brand: #064681;
+    --bg: #f8fafc;
+    --text: #334155;
+    --border: #e2e8f0;
+}
+body {
+    font-family: Helvetica, Arial, sans-serif;
+    background-color: var(--bg);
+    color: var(--text);
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 20px;
+}
+.container {
+    width: 100%;
+    max-width: 600px;
+    background: white;
+    padding: 2rem;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    text-align: center;
+    position: relative;
+}
+h1 {
+    color: var(--brand);
+    margin-top: 0;
+    font-size: 1.5rem;
+    margin-bottom: 0.5rem;
+}
+p.subtitle {
+    font-size: 0.9rem;
+    color: #64748b;
+    margin-bottom: 2rem;
+}
+.drop-zone {
+    border: 2px dashed #cbd5e1;
+    border-radius: 8px;
+    padding: 3rem 1rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
+    overflow: hidden;
+    background: #f1f5f9;
+}
+.drop-zone.drag-over {
+    border-color: var(--brand);
+    background: #eff6ff;
+    transform: scale(1.02);
+}
+.drop-zone p {
+    margin: 0;
+    pointer-events: none;
+    color: #64748b;
+}
+.drop-zone kbd {
+    background: white;
+    padding: 2px 6px;
+    border-radius: 4px;
+    border: 1px solid #cbd5e1;
+    font-family: Consolas, monospace;
+    font-size: 0.8em;
+}
+.result-area {
+    display: none;
+    margin-top: 2rem;
+    animation: fadeIn 0.3s ease-in-out;
+}
+.preview-wrapper {
+    background-image: 
+        linear-gradient(45deg, #eee 25%, transparent 25%), 
+        linear-gradient(-45deg, #eee 25%, transparent 25%), 
+        linear-gradient(45deg, transparent 75%, #eee 75%), 
+        linear-gradient(-45deg, transparent 75%, #eee 75%);
+    background-size: 20px 20px;
+    background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 1.5rem;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    box-shadow: inset 0 0 10px rgba(0,0,0,0.05);
+}
+canvas {
+    max-width: 100%;
+    height: auto;
+    filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1));
+}
+.actions {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+}
+button {
+    background-color: var(--brand);
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.95rem;
+}
+button:hover {
+    filter: brightness(110%);
+}
+button.secondary {
+    background-color: white;
+    color: var(--brand);
+    border: 1px solid var(--brand);
+}
+button.secondary:hover {
+    background-color: #f0f7ff;
+}
+#toast {
+    visibility: hidden;
+    min-width: 250px;
+    background-color: #333;
+    color: #fff;
+    text-align: center;
+    border-radius: 8px;
+    padding: 12px;
+    position: fixed;
+    z-index: 999;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 0.9rem;
+    opacity: 0;
+    transition: opacity 0.3s;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+#toast.show {
+    visibility: visible;
+    opacity: 1;
+}
+#toast.error {
+    background-color: #dc2626;
+}
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+.icon { width: 18px; height: 18px; fill: currentColor; }
+.switch-wrapper {
+    position: absolute;
+    top: 18px;
+    right: 18px;
+    z-index: 2;
+    margin: 0;
+    display: block;
+}
+.switch {
+    display: inline-flex;
+    align-items: center;
+    cursor: pointer;
+    background: #f7fafd;
+    border-radius: 16px;
+    border: none;
+    padding: 3px 10px;
+    font-size: 0.85rem;
+    font-family: Helvetica, Arial, sans-serif;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+    user-select: none;
+    transition: background 0.2s, color 0.2s;
+    color: #064681;
+    min-width: 60px;
+    min-height: 22px;
+}
+.switch.active {
+    background: #ffe3ec;
+    color: #ee3162;
+    min-width: 60px;
+    min-height: 22px;
+}
+.switch .switch-dot {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #b3c7e6;
+    margin-right: 8px;
+    border: none;
+    box-shadow: none;
+    transition: background 0.2s;
+}
+.switch.active .switch-dot {
+    background: #ee3162;
+    box-shadow: none;
+}
+input[type="file"] { display: none; }

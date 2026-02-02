@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QuickFrame - Image Processor</title>
+    <link rel="icon" type="image/png" href="logo.png">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <div class="switch-wrapper">
+            <div class="switch" id="colorSwitch" title="Toggle frame color">
+                <span class="switch-dot"></span>
+                <span id="switchLabel">Navy</span>
+            </div>
+        </div>
+        <h1 style="margin: 0 auto; text-align: center;">QuickFrame</h1>
+        <p class="subtitle">Paste (Ctrl+V) or Drop an image. <br>Get rounded corners & border instantly.</p>
+        <!-- Drop Zone -->
+        <div class="drop-zone" id="dropZone">
+            <p>Drag & Drop image here<br>or <kbd>Ctrl+V</kbd> to paste</p>
+            <input type="file" id="fileInput" accept="image/*">
+        </div>
+        <!-- Result Section -->
+        <div class="result-area" id="resultArea">
+            <div class="preview-wrapper">
+                <canvas id="outputCanvas"></canvas>
+            </div>
+            <div class="actions">
+                <button id="copyBtn">
+                    <svg class="icon" viewBox="0 0 24 24"><path d="M16 1H4C2.9 1 2 1.9 2 3V17H4V3H16V1ZM19 5H8C6.9 5 6 5.9 6 7V21C6 22.1 6.9 23 8 23H19C20.1 23 21 22.1 21 21V7C21 5.9 20.1 5 19 5ZM19 21H8V7H19V21Z"/></svg>
+                    Copy to Clipboard
+                </button>
+                <button id="downloadBtn" class="secondary">
+                    <svg class="icon" viewBox="0 0 24 24"><path d="M5,20H19V18H5M19,9H15V3H9V9H5L12,16L19,9Z"/></svg>
+                    Download WebP
+                </button>
+            </div>
+        </div>
+    </div>
+    <div id="toast">Copied to Clipboard!</div>
+    <script src="script.js"></script>
+</body>
+</html>
