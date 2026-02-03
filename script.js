@@ -6,6 +6,8 @@ const CONFIG = {
     borderWidth: 1.5,
     radius: 6
 };
+const MIN_CROP_SIZE = 24;
+
 // DOM Elements
 const dropZone = document.getElementById('dropZone');
 const fileInput = document.getElementById('fileInput');
@@ -17,6 +19,20 @@ const downloadBtn = document.getElementById('downloadBtn');
 const toast = document.getElementById('toast');
 const colorSwitch = document.getElementById('colorSwitch');
 const switchLabel = document.getElementById('switchLabel');
+const previewWrapper = document.querySelector('.preview-wrapper');
+const cropOverlay = document.getElementById('cropOverlay');
+const cropRectEl = document.getElementById('cropRect');
+const cropHandles = cropRectEl ? cropRectEl.querySelectorAll('.crop-handle') : [];
+
+const state = {
+    img: null,
+    crop: null
+};
+let isDragging = false;
+let dragEdge = null;
+let dragStart = null;
+let drawQueued = false;
+
 // --- Event Listeners ---
 // 0. Color Switch
 if (colorSwitch) {
@@ -30,14 +46,10 @@ if (colorSwitch) {
             CONFIG.borderColor = PINK;
             switchLabel.textContent = 'Pink';
         }
-        // Redraw if image is loaded
-        if (canvas.width > 0 && canvas.height > 0) {
-            // Re-draw last image with new border color
-            // We need to keep a reference to the last image
-            if (window._lastImage) drawToCanvas(window._lastImage);
-        }
+        if (state.img) requestDraw();
     });
 }
+
 // 1. Paste Event (Global)
 document.addEventListener('paste', (e) => {
     const items = e.clipboardData.items;
@@ -61,6 +73,7 @@ document.addEventListener('paste', (e) => {
         }
     }
 });
+
 // 2. Drag & Drop
 dropZone.addEventListener('dragover', (e) => {
     e.preventDefault();
@@ -76,14 +89,40 @@ dropZone.addEventListener('drop', (e) => {
         processFile(e.dataTransfer.files[0]);
     }
 });
+
 // 3. Click to Upload
 dropZone.addEventListener('click', () => fileInput.click());
-fileInput.addEventListener('change', (e) => {
+fileInput.addEventListener('change', () => {
     if (fileInput.files.length > 0) processFile(fileInput.files[0]);
 });
+
 // 4. Buttons
 copyBtn.addEventListener('click', copyToClipboard);
 downloadBtn.addEventListener('click', downloadImage);
+
+// 5. Crop Drag Handles
+cropHandles.forEach((handle) => {
+    handle.addEventListener('pointerdown', (e) => {
+        if (!state.img || !state.crop) return;
+        const edge = e.currentTarget.dataset.edge;
+        if (!edge) return;
+        isDragging = true;
+        dragEdge = edge;
+        dragStart = { crop: { ...state.crop } };
+        window.addEventListener('pointermove', onDragMove);
+        window.addEventListener('pointerup', onDragEnd);
+        window.addEventListener('pointercancel', onDragEnd);
+        e.preventDefault();
+    });
+});
+
+window.addEventListener('resize', () => {
+    if (state.img) {
+        syncOverlayBounds();
+        updateCropOverlay();
+    }
+});
+
 // --- Core Logic ---
 function processFile(file) {
     if (!file) return;
@@ -94,11 +133,12 @@ function processFile(file) {
     const reader = new FileReader();
     reader.onload = (e) => {
         const img = new Image();
-        img.onload = () => drawToCanvas(img);
+        img.onload = () => onImageReady(img);
         img.src = e.target.result;
     };
     reader.readAsDataURL(file);
 }
+
 function handleHtmlPaste(html) {
     const parser = new DOMParser();
     const doc = parser.parseFromString(html, 'text/html');
@@ -109,11 +149,12 @@ function handleHtmlPaste(html) {
         showToast("No usable image found in clipboard.", true);
     }
 }
+
 function loadImageFromUrl(url) {
     const img = new Image();
     img.crossOrigin = "Anonymous";
     img.onload = () => {
-        drawToCanvas(img);
+        onImageReady(img);
     };
     img.onerror = () => {
         console.error("CORS Error or Load Error for URL:", url);
@@ -121,60 +162,190 @@ function loadImageFromUrl(url) {
     };
     img.src = url;
 }
-function drawToCanvas(img) {
-        window._lastImage = img;
+
+function onImageReady(img) {
+    state.img = img;
+    state.crop = { x: 0, y: 0, w: img.width, h: img.height };
+    requestDraw();
+}
+
+function requestDraw() {
+    if (drawQueued) return;
+    drawQueued = true;
+    requestAnimationFrame(() => {
+        drawQueued = false;
+        drawPreview();
+    });
+}
+
+function drawPreview() {
+    if (!state.img) return;
+    const img = state.img;
     canvas.width = img.width;
     canvas.height = img.height;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    const w = canvas.width;
-    const h = canvas.height;
-    const r = CONFIG.radius;
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    resultArea.style.display = 'block';
+    if (cropOverlay) {
+        if (cropRectEl) cropRectEl.style.color = CONFIG.borderColor;
+        cropOverlay.style.display = 'block';
+        syncOverlayBounds();
+        updateCropOverlay();
+    }
+}
+
+function syncOverlayBounds() {
+    if (!cropOverlay || !previewWrapper) return;
+    const canvasRect = canvas.getBoundingClientRect();
+    const wrapperRect = previewWrapper.getBoundingClientRect();
+    cropOverlay.style.left = `${canvasRect.left - wrapperRect.left}px`;
+    cropOverlay.style.top = `${canvasRect.top - wrapperRect.top}px`;
+    cropOverlay.style.width = `${canvasRect.width}px`;
+    cropOverlay.style.height = `${canvasRect.height}px`;
+}
+
+function updateCropOverlay() {
+    if (!cropOverlay || !cropRectEl || !state.crop) return;
+    const overlayWidth = cropOverlay.clientWidth;
+    const overlayHeight = cropOverlay.clientHeight;
+    if (!overlayWidth || !overlayHeight || !canvas.width || !canvas.height) return;
+    const scaleX = overlayWidth / canvas.width;
+    const scaleY = overlayHeight / canvas.height;
+    cropRectEl.style.left = `${state.crop.x * scaleX}px`;
+    cropRectEl.style.top = `${state.crop.y * scaleY}px`;
+    cropRectEl.style.width = `${state.crop.w * scaleX}px`;
+    cropRectEl.style.height = `${state.crop.h * scaleY}px`;
+}
+
+function onDragMove(e) {
+    if (!isDragging || !state.img || !state.crop || !dragStart) return;
+    const pos = getPointerPos(e);
+    updateCropFromEdge(pos);
+    requestDraw();
+}
+
+function onDragEnd() {
+    if (!isDragging) return;
+    isDragging = false;
+    dragEdge = null;
+    dragStart = null;
+    window.removeEventListener('pointermove', onDragMove);
+    window.removeEventListener('pointerup', onDragEnd);
+    window.removeEventListener('pointercancel', onDragEnd);
+}
+
+function getPointerPos(e) {
+    const overlayRect = cropOverlay.getBoundingClientRect();
+    const scaleX = canvas.width / overlayRect.width;
+    const scaleY = canvas.height / overlayRect.height;
+    const x = (e.clientX - overlayRect.left) * scaleX;
+    const y = (e.clientY - overlayRect.top) * scaleY;
+    return { x, y };
+}
+
+function updateCropFromEdge(pos) {
+    const imgW = state.img.width;
+    const imgH = state.img.height;
+    const min = MIN_CROP_SIZE;
+    const start = dragStart.crop;
+    let x = start.x;
+    let y = start.y;
+    let w = start.w;
+    let h = start.h;
+
+    if (dragEdge === 'left') {
+        const newX = clamp(pos.x, 0, start.x + start.w - min);
+        x = newX;
+        w = start.x + start.w - newX;
+    } else if (dragEdge === 'right') {
+        const newRight = clamp(pos.x, start.x + min, imgW);
+        x = start.x;
+        w = newRight - start.x;
+    } else if (dragEdge === 'top') {
+        const newY = clamp(pos.y, 0, start.y + start.h - min);
+        y = newY;
+        h = start.y + start.h - newY;
+    } else if (dragEdge === 'bottom') {
+        const newBottom = clamp(pos.y, start.y + min, imgH);
+        y = start.y;
+        h = newBottom - start.y;
+    }
+
+    state.crop = {
+        x: Math.round(clamp(x, 0, imgW - min)),
+        y: Math.round(clamp(y, 0, imgH - min)),
+        w: Math.round(clamp(w, min, imgW - x)),
+        h: Math.round(clamp(h, min, imgH - y))
+    };
+}
+
+function clamp(value, min, max) {
+    return Math.min(max, Math.max(min, value));
+}
+
+function renderOutputCanvas() {
+    if (!state.img || !state.crop) return null;
+    const img = state.img;
+    const crop = normalizeCrop(state.crop, img);
+    const output = document.createElement('canvas');
+    output.width = crop.w;
+    output.height = crop.h;
+    const octx = output.getContext('2d');
     const bw = CONFIG.borderWidth;
     const offset = bw / 2;
-    ctx.save();
-    ctx.beginPath();
-    if (ctx.roundRect) {
-        ctx.roundRect(offset, offset, w - bw, h - bw, r);
-    } else {
-        ctx.moveTo(offset + r, offset);
-        ctx.lineTo(w - offset - r, offset);
-        ctx.quadraticCurveTo(w - offset, offset, w - offset, offset + r);
-        ctx.lineTo(w - offset, h - offset - r);
-        ctx.quadraticCurveTo(w - offset, h - offset, w - offset - r, h - offset);
-        ctx.lineTo(offset + r, h - offset);
-        ctx.quadraticCurveTo(offset, h - offset, offset, h - offset - r);
-        ctx.lineTo(offset, offset + r);
-        ctx.quadraticCurveTo(offset, offset, offset + r, offset);
-    }
-    ctx.clip();
-    ctx.drawImage(img, 0, 0, w, h);
-    ctx.restore();
-    ctx.beginPath();
-    if (ctx.roundRect) {
-        ctx.roundRect(offset, offset, w - bw, h - bw, r);
-    } else {
-        ctx.moveTo(offset + r, offset);
-        ctx.lineTo(w - offset - r, offset);
-        ctx.quadraticCurveTo(w - offset, offset, w - offset, offset + r);
-        ctx.lineTo(w - offset, h - offset - r);
-        ctx.quadraticCurveTo(w - offset, h - offset, w - offset - r, h - offset);
-        ctx.lineTo(offset + r, h - offset);
-        ctx.quadraticCurveTo(offset, h - offset, offset, h - offset - r);
-        ctx.lineTo(offset, offset + r);
-        ctx.quadraticCurveTo(offset, offset, offset + r, offset);
-    }
-    ctx.strokeStyle = CONFIG.borderColor;
-    ctx.lineWidth = CONFIG.borderWidth;
-    ctx.stroke();
-    resultArea.style.display = 'block';
+    const r = Math.max(0, Math.min(CONFIG.radius, (Math.min(output.width, output.height) - bw) / 2));
+
+    octx.save();
+    octx.beginPath();
+    pathRoundedRect(octx, offset, offset, output.width - bw, output.height - bw, r);
+    octx.clip();
+    octx.drawImage(img, crop.x, crop.y, crop.w, crop.h, 0, 0, output.width, output.height);
+    octx.restore();
+
+    octx.beginPath();
+    pathRoundedRect(octx, offset, offset, output.width - bw, output.height - bw, r);
+    octx.strokeStyle = CONFIG.borderColor;
+    octx.lineWidth = bw;
+    octx.stroke();
+    return output;
 }
+
+function normalizeCrop(crop, img) {
+    const min = MIN_CROP_SIZE;
+    const x = clamp(Math.round(crop.x), 0, img.width - min);
+    const y = clamp(Math.round(crop.y), 0, img.height - min);
+    const w = clamp(Math.round(crop.w), min, img.width - x);
+    const h = clamp(Math.round(crop.h), min, img.height - y);
+    return { x, y, w, h };
+}
+
+function pathRoundedRect(context, x, y, width, height, radius) {
+    if (context.roundRect) {
+        context.roundRect(x, y, width, height, radius);
+        return;
+    }
+    const r = Math.max(0, Math.min(radius, Math.min(width, height) / 2));
+    context.moveTo(x + r, y);
+    context.lineTo(x + width - r, y);
+    context.quadraticCurveTo(x + width, y, x + width, y + r);
+    context.lineTo(x + width, y + height - r);
+    context.quadraticCurveTo(x + width, y + height, x + width - r, y + height);
+    context.lineTo(x + r, y + height);
+    context.quadraticCurveTo(x, y + height, x, y + height - r);
+    context.lineTo(x, y + r);
+    context.quadraticCurveTo(x, y, x + r, y);
+}
+
 async function copyToClipboard() {
     try {
-        const pngBlob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
-        const dataUrl = canvas.toDataURL('image/png');
+        const output = renderOutputCanvas();
+        if (!output) return;
+        const pngBlob = await new Promise(resolve => output.toBlob(resolve, 'image/png'));
+        if (!pngBlob) throw new Error('Failed to create image');
+        const dataUrl = output.toDataURL('image/png');
         const htmlContent = `<figure class="image" style="float: none; clear: both; margin: 0 auto 0 0; display: table;"><img src="${dataUrl}" alt="" /></figure>`;
         const htmlBlob = new Blob([htmlContent], { type: 'text/html' });
-        const item = new ClipboardItem({ 
+        const item = new ClipboardItem({
             'image/png': pngBlob,
             'text/html': htmlBlob
         });
@@ -187,7 +358,9 @@ async function copyToClipboard() {
             return;
         }
         try {
-            const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+            const output = renderOutputCanvas();
+            if (!output) return;
+            const blob = await new Promise(resolve => output.toBlob(resolve, 'image/png'));
             const simpleItem = new ClipboardItem({ 'image/png': blob });
             await navigator.clipboard.write([simpleItem]);
             showToast("Copied (Simple Mode)");
@@ -196,9 +369,12 @@ async function copyToClipboard() {
         }
     }
 }
+
 function downloadImage() {
     try {
-        const dataUrl = canvas.toDataURL('image/webp', 0.95);
+        const output = renderOutputCanvas();
+        if (!output) return;
+        const dataUrl = output.toDataURL('image/webp', 0.95);
         const link = document.createElement('a');
         link.download = 'framed-image.webp';
         link.href = dataUrl;
@@ -207,6 +383,7 @@ function downloadImage() {
         showToast("Download failed. Image may be protected.", true);
     }
 }
+
 function showToast(msg, isError = false) {
     toast.textContent = msg;
     if (isError) {
@@ -215,7 +392,11 @@ function showToast(msg, isError = false) {
         toast.classList.remove("error");
     }
     toast.classList.add("show");
-    setTimeout(() => { 
-        toast.classList.remove("show"); 
+    setTimeout(() => {
+        toast.classList.remove("show");
     }, 4000);
+}
+
+if (cropOverlay) {
+    cropOverlay.style.display = 'none';
 }

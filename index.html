@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
+    <a class="github-credit" href="https://github.com/git-maks" target="_blank" rel="noopener noreferrer">GitHub: git-maks</a>
     <div class="container">
         <div class="switch-wrapper">
             <div class="switch" id="colorSwitch" title="Toggle frame color">
@@ -26,6 +27,14 @@
         <div class="result-area" id="resultArea">
             <div class="preview-wrapper">
                 <canvas id="outputCanvas"></canvas>
+                <div class="crop-overlay" id="cropOverlay" aria-hidden="true">
+                    <div class="crop-rect" id="cropRect">
+                        <div class="crop-handle top" data-edge="top"></div>
+                        <div class="crop-handle right" data-edge="right"></div>
+                        <div class="crop-handle bottom" data-edge="bottom"></div>
+                        <div class="crop-handle left" data-edge="left"></div>
+                    </div>
+                </div>
             </div>
             <div class="actions">
                 <button id="copyBtn">
