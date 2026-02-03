@@ -1,1 +1,1 @@
-Round corners and add frame to your image instantly
+Round corners and add frame to your image instantly!
